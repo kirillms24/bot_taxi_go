@@ -1,29 +1,24 @@
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Form
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.sql import func
+from models import Base, Ticket
 import json
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
-# --- Database setup ---
+# --- Database ---
 SQLALCHEMY_DATABASE_URL = "sqlite:///./taxi_support.db"
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
-class Ticket(Base):
-    __tablename__ = "tickets"
-    id = Column(Integer, primary_key=True, index=True)
-    customer_name = Column(String, index=True)
-    message = Column(Text)
-    response = Column(Text, default="")
-    status = Column(String, default="Новый")
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
 Base.metadata.create_all(bind=engine)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 # --- Bot setup ---
 tokenizer = AutoTokenizer.from_pretrained("facebook/blenderbot-400M-distill")
@@ -43,14 +38,8 @@ def save_ticket_history(customer_name, message, response):
 # --- FastAPI app ---
 app = FastAPI()
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
 # --- Routes ---
+
 @app.get("/", response_class=HTMLResponse)
 async def index():
     return """
@@ -61,8 +50,9 @@ async def index():
         <title>Такси Поддержка</title>
         <style>
             body { font-family: Arial; margin:20px; background:#f4f4f4; }
-            header nav a { margin-right:15px; text-decoration:none; color:#333; }
-            h1,h2{color:#222;}
+            header nav a { margin-right:15px; text-decoration:none; color:#333; font-weight:bold; }
+            header { margin-bottom:20px; }
+            h1,h2 { color:#222; }
         </style>
     </head>
     <body>
@@ -90,10 +80,10 @@ async def support_page():
         <meta charset="UTF-8">
         <title>Чат с ботом</title>
         <style>
-            body{font-family:Arial;margin:20px;background:#f4f4f4;}
-            input, button{padding:8px;margin:5px 0;}
-            #chat-box p{background:#fff;padding:5px;border-radius:4px;margin:5px 0;}
-            #chat-box{max-height:400px;overflow-y:auto;border:1px solid #ccc;padding:10px;background:#eaeaea;}
+            body { font-family: Arial; margin:20px; background:#f4f4f4; }
+            input, button { padding:8px; margin:5px 0; }
+            #chat-box p { background:#fff; padding:5px; border-radius:4px; margin:5px 0; }
+            #chat-box { max-height:400px; overflow-y:auto; border:1px solid #ccc; padding:10px; background:#eaeaea; }
         </style>
     </head>
     <body>
@@ -104,7 +94,6 @@ async def support_page():
             <button type="submit">Отправить</button>
         </form>
         <div id="chat-box"></div>
-
         <script>
             document.getElementById("chat-form").addEventListener("submit", async (e) => {
                 e.preventDefault();
@@ -112,7 +101,7 @@ async def support_page():
                 const message = document.getElementById("message").value;
                 const response = await fetch("/support", {
                     method: "POST",
-                    body: new URLSearchParams({customer_name:name,message:message})
+                    body: new URLSearchParams({ customer_name:name, message:message })
                 });
                 const data = await response.json();
                 const chatBox = document.getElementById("chat-box");
@@ -126,7 +115,7 @@ async def support_page():
     """
 
 @app.post("/support")
-async def send_message(customer_name: str = Form(...), message: str = Form(...), db=next(get_db())):
+async def send_message(customer_name: str = Form(...), message: str = Form(...), db: Session = next(get_db())):
     response = get_bot_response(message)
     save_ticket_history(customer_name, message, response)
     ticket = Ticket(customer_name=customer_name, message=message, response=response)
@@ -136,7 +125,7 @@ async def send_message(customer_name: str = Form(...), message: str = Form(...),
     return {"response": response}
 
 @app.get("/admin", response_class=HTMLResponse)
-async def admin_page(db=next(get_db())):
+async def admin_page(db: Session = next(get_db())):
     tickets = db.query(Ticket).all()
     rows = ""
     for t in tickets:
@@ -149,8 +138,9 @@ async def admin_page(db=next(get_db())):
         <title>Админка</title>
         <style>
             body{{font-family:Arial;margin:20px;background:#f4f4f4;}}
-            table,th,td{{border:1px solid black;border-collapse:collapse;padding:5px;}}
+            table, th, td{{border:1px solid black;border-collapse:collapse;padding:5px;}}
             th{{background:#ddd;}}
+            td{{max-width:300px; word-wrap:break-word;}}
         </style>
     </head>
     <body>
@@ -169,6 +159,3 @@ async def admin_page(db=next(get_db())):
     </body>
     </html>
     """
-))):
-    tickets = db.query(Ticket).all()
-    return templates.TemplateResponse("admin.html", {"request": request, "tickets": tickets})
