@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Бот поддержки</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <h1>Бот поддержки службы такси</h1>
+    <form id="messageForm">
+        <input type="text" id="userMessage" name="message" placeholder="Введите сообщение">
+        <button type="submit">Отправить</button>
+    </form>
+    <div id="botResponse"></div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
