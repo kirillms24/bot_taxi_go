@@ -3,7 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <title>Чат с ботом</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+        }
+        input, button {
+            padding: 8px;
+            margin: 5px 0;
+        }
+        #chat-box p {
+            background-color: #fff;
+            padding: 5px;
+            border-radius: 4px;
+            margin: 5px 0;
+        }
+        #chat-box {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            background-color: #eaeaea;
+        }
+    </style>
 </head>
 <body>
     <h2>Чат с ботом поддержки</h2>
@@ -14,6 +37,23 @@
     </form>
     <div id="chat-box"></div>
 
-    <script src="/static/script.js"></script>
+    <script>
+        document.getElementById("chat-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const name = document.getElementById("name").value;
+            const message = document.getElementById("message").value;
+
+            const response = await fetch("/support", {
+                method: "POST",
+                body: new URLSearchParams({ customer_name: name, message: message })
+            });
+            const data = await response.json();
+
+            const chatBox = document.getElementById("chat-box");
+            chatBox.innerHTML += `<p><b>Вы:</b> ${message}</p><p><b>Бот:</b> ${data.response}</p>`;
+            document.getElementById("message").value = "";
+            chatBox.scrollTop = chatBox.scrollHeight;
+        });
+    </script>
 </body>
 </html>
