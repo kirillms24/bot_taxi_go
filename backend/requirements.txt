@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+jinja2
+aiofiles
+python-multipart
+transformers
+torch
