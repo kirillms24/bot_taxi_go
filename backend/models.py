@@ -9,5 +9,5 @@ class Ticket(Base):
     customer_name = Column(String, index=True)
     message = Column(Text)
     response = Column(Text, default="")
-    status = Column(String, default="Новый")  # Новый, В работе, Закрыт
+    status = Column(String, default="Новый")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
